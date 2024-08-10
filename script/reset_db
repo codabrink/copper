@@ -1,0 +1,5 @@
+#!/bin/bash
+
+dropdb copper --force
+sqlx database create
+sqlx migrate run

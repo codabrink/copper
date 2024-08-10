@@ -1,0 +1,66 @@
+[workspace]
+members = ["entity"]
+resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+specta = { version = "1.0", features = ["rust_decimal", "chrono", "uuid"] }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.12", features = ["json"] }
+sqlx = { version = "0.8", features = [
+  "runtime-tokio",
+  "migrate",
+  "macros",
+  "postgres",
+  "chrono",
+] }
+tracing = "0.1"
+
+[package]
+name = "copper"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+entity = { path = "./entity" }
+
+
+anyhow.workspace = true
+base64 = "0.22"
+chrono.workspace = true
+chrono-tz = { version = "0.9", features = ["serde"] }
+cuid = "1.3"
+once_cell = "1"
+regex = "1"
+serde.workspace = true
+serde_json.workspace = true
+serde_with = "3.6"
+time = "0.3"
+
+reqwest.workspace = true
+jsonwebtoken = "9.1.0"
+
+backtrace = "0.3"
+color-backtrace = "0.6"
+
+axum = "0.7"
+axum-extra = { version = "0.9", features = ["multipart", "cookie"] }
+axum-macros = "0.4"
+axum_typed_multipart = "0.11"
+tower-http = { version = "0.5", features = ["cors", "trace", "fs"] }
+tokio = { version = "1", features = ["full"] }
+tracing.workspace = true
+tracing-subscriber = "0.3"
+
+
+specta.workspace = true
+
+# Add "tls-rustls" feature later.
+
+clap = { version = "4.5.15", features = ["derive"] }
+sqlx.workspace = true
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3

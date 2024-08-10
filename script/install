@@ -1,0 +1,12 @@
+#!/bin/bash
+
+if ! [ -x "$(command -v bun)" ]; then
+  sudo npm install -g bun
+fi
+rustup override set nightly
+rustup component add rustc-codegen-cranelift-preview --toolchain nightly
+cargo install cargo-watch
+if ! [ -x "$(command -v sqlx)" ]; then
+  cargo install sqlx-cli --no-default-features --features native-tls,postgres
+fi
+
