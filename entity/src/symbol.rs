@@ -20,7 +20,7 @@ impl Symbol {
     let symbols = query_as!(
       Self,
       r#"--sql
-SELECT * FROM symbols;
+SELECT * FROM symbols s WHERE s.status = 'TRADING';
       "#
     )
     .fetch_all(pool)

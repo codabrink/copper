@@ -7,7 +7,7 @@ use entity::Symbol;
 mod api;
 mod config;
 mod db;
-mod historical;
+mod history;
 mod prelude;
 
 #[tokio::main]
@@ -27,8 +27,9 @@ async fn main() -> Result<()> {
     return Ok(());
   }
 
-  if args.download_historical {
-    historical::download_historical_all(&pool).await?;
+  if args.download_history {
+    history::download_historical_all(&pool).await?;
+    return Ok(());
   }
 
   api::serve().await.unwrap();
@@ -45,5 +46,5 @@ struct Args {
 
   /// Download historical data for all of the symbols in the database
   #[arg(long)]
-  download_historical: bool,
+  download_history: bool,
 }
