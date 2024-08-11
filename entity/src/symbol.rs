@@ -1,21 +1,34 @@
 use anyhow::Result;
 use serde::Deserialize;
-use sqlx::{postgres::PgDatabaseError, query, Database, PgPool};
+use sqlx::{postgres::PgDatabaseError, query, query_as, Database, PgPool};
 use std::collections::HashMap;
 use tracing::{info, warn};
 
 #[derive(Deserialize)]
 pub struct Symbol {
-  symbol: String,
+  pub symbol: String,
   // possible vaules: TRADING, BREAK
-  status: String,
+  pub status: String,
   #[serde(rename = "baseAsset")]
-  base_asset: String,
+  pub base_asset: String,
   #[serde(rename = "quoteAsset")]
-  quote_asset: String,
+  pub quote_asset: String,
 }
 
 impl Symbol {
+  pub async fn fetch_all(pool: &PgPool) -> Result<Vec<Self>> {
+    let symbols = query_as!(
+      Self,
+      r#"--sql
+SELECT * FROM symbols;
+      "#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(symbols)
+  }
+
   pub async fn populate_all(pool: &PgPool) -> Result<()> {
     let resp = reqwest::get("https://api.binance.com/api/v3/exchangeInfo")
       .await?

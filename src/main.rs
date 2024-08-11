@@ -7,6 +7,7 @@ use entity::Symbol;
 mod api;
 mod config;
 mod db;
+mod historical;
 mod prelude;
 
 #[tokio::main]
@@ -26,6 +27,10 @@ async fn main() -> Result<()> {
     return Ok(());
   }
 
+  if args.download_historical {
+    historical::download_historical_all(&pool).await?;
+  }
+
   api::serve().await.unwrap();
 
   Ok(())
@@ -37,4 +42,8 @@ struct Args {
   /// Populate the trading symbols from binance
   #[arg(long)]
   populate_symbols: bool,
+
+  /// Download historical data for all of the symbols in the database
+  #[arg(long)]
+  download_historical: bool,
 }
