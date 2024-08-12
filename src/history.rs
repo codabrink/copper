@@ -1,97 +1,100 @@
 use anyhow::{bail, Result};
-use csv::StringRecord;
+use async_zip::tokio::read::seek::ZipFileReader;
 use entity::{Candle, Symbol};
-use serde::Deserialize;
+use futures::StreamExt;
 use sqlx::PgPool;
-use std::{
-  io::{BufRead, BufReader},
-  ops::{Range, RangeInclusive},
-  path::PathBuf,
-};
+use std::{ops::RangeInclusive, path::PathBuf};
 use tokio::{
   fs::{create_dir_all, File},
-  io::AsyncWriteExt,
-  spawn,
+  io::{AsyncWriteExt, BufReader},
+  spawn, stream,
 };
-use tokio_stream::StreamExt;
 use tracing::{error, info};
-use zip::ZipArchive;
 
 const INTERVALS: &[&str] = &["15m", "30m", "1h", "2h", "4h", "12h", "1d", "1w", "1mo"];
 const BASEURL: &str = "https://data.binance.vision/data/spot/monthly/klines";
 static YEARS: RangeInclusive<i32> = 2017..=2024;
 static MONTHS: RangeInclusive<i32> = 1..=12;
 
-#[derive(Deserialize)]
-struct CSVCandle {
-  open_time: i32,
-  open: f32,
-  close: f32,
-  high: f32,
-  low: f32,
-  num_trades: i32,
-  volume: f32,
-  taker_volume: f32,
-}
-
 pub async fn load_all(pool: &PgPool) -> Result<()> {
   let symbols = Symbol::fetch_all(pool).await?;
+  let mut futures = vec![];
+
+  // We know it'll last long enough.
+  let pool = unsafe { std::mem::transmute::<&'_ PgPool, &'static PgPool>(pool) };
 
   for symbol in symbols {
     info!("Loading {}...", &symbol.symbol);
 
     let dir = PathBuf::from("history").join(&symbol.symbol);
     for interval in INTERVALS {
-      let mut tx = pool.begin().await?;
-
-      let mut candle = Candle {
-        symbol: symbol.symbol.clone(),
-        interval: interval.to_string(),
-        ..Default::default()
-      };
-
       let dir = dir.join(interval);
       for year in YEARS.clone() {
-        for month in MONTHS.clone() {
-          let zip_path = dir.join(format!("{year}-{month:02}.zip"));
-          info!("{zip_path:?}");
-          if !zip_path.exists() {
-            continue;
-          }
-          let csv_path = format!("{}-{interval}-{year}-{month:02}.csv", &symbol.symbol);
-
-          let zip_file = std::fs::File::open(zip_path)?;
-          let mut archive = ZipArchive::new(zip_file)?;
-          let csv = archive.by_name(&csv_path)?;
-
-          let mut reader = BufReader::new(csv);
-          let mut buf = Vec::new();
-
-          loop {
-            let len = reader.read_until(b'\n', &mut buf)?;
-            if len == 0 {
-              break;
-            }
-
-            let row = String::from_utf8_lossy(&buf[..len]);
-            let split: Vec<&str> = row.split(",").collect();
-
-            candle.open_time = split[0].parse()?;
-            candle.open = split[1].parse()?;
-            candle.high = split[2].parse()?;
-            candle.low = split[3].parse()?;
-            candle.close = split[4].parse()?;
-            candle.volume = split[5].parse()?;
-            candle.num_trades = split[8].parse()?;
-            candle.taker_volume = split[9].parse()?;
-
-            candle.insert(&mut tx).await?;
-          }
-        }
+        futures.push(load_year(
+          pool,
+          dir.clone(),
+          symbol.symbol.clone(),
+          interval,
+          year,
+        ));
       }
     }
   }
 
+  let mut stream_of_futures = futures::stream::iter(futures).buffer_unordered(30);
+  while let Some(_) = stream_of_futures.next().await {}
+
+  Ok(())
+}
+
+async fn load_year<'a>(
+  pool: &'a PgPool,
+  dir: PathBuf,
+  symbol: String,
+  interval: &str,
+  year: i32,
+) -> Result<()> {
+  let mut tx = pool.begin().await?;
+  for month in MONTHS.clone() {
+    let zip_path = dir.join(format!("{year}-{month:02}.zip"));
+    info!("{zip_path:?}");
+    if !zip_path.exists() {
+      continue;
+    }
+    // let csv_path = format!("{}-{interval}-{year}-{month:02}.csv", &symbol);
+
+    let mut zip_file = BufReader::new(File::open(zip_path).await?);
+    let mut zip = ZipFileReader::with_tokio(&mut zip_file).await?;
+
+    let mut csv_reader = zip.reader_with_entry(0).await?;
+    let mut csv = String::new();
+    csv_reader.read_to_string_checked(&mut csv).await?;
+
+    let lines: Vec<&str> = csv.split("\n").collect();
+    for line in lines {
+      if line.len() == 0 {
+        continue;
+      }
+
+      let split: Vec<&str> = line.split(",").collect();
+
+      let candle = Candle {
+        symbol: symbol.to_string(),
+        interval: interval.to_string(),
+        open_time: split[0].parse()?,
+        open: split[1].parse()?,
+        high: split[2].parse()?,
+        low: split[3].parse()?,
+        close: split[4].parse()?,
+        volume: split[5].parse()?,
+        num_trades: split[8].parse()?,
+        taker_volume: split[9].parse()?,
+      };
+
+      candle.insert(&mut tx).await?;
+    }
+  }
+  tx.commit().await?;
   Ok(())
 }
 

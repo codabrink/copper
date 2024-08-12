@@ -12,8 +12,6 @@ CREATE TABLE IF NOT EXISTS candles (
   PRIMARY KEY(symbol, interval, open_time)
 );
 
-
-
 CREATE TABLE IF NOT EXISTS symbols (
   symbol      TEXT PRIMARY KEY,
   status      TEXT NOT NULL,
