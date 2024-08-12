@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS candles (
   symbol       TEXT NOT NULL,
   interval     TEXT NOT NULL,
-  open_time    INTEGER NOT NULL,
+  open_time    BIGINT NOT NULL,
   open         REAL NOT NULL,
   close        REAL NOT NULL,
   high         REAL NOT NULL,

@@ -23,12 +23,18 @@ async fn main() -> Result<()> {
   let pool = db::pool().await?;
 
   if args.populate_symbols {
-    Symbol::populate_all(&pool).await?;
+    let mut tx = pool.begin().await?;
+    Symbol::populate_all(&mut tx).await?;
     return Ok(());
   }
 
   if args.download_history {
-    history::download_historical_all(&pool).await?;
+    history::download_history_all(&pool).await?;
+    return Ok(());
+  }
+
+  if args.load_history {
+    history::load_all(&pool).await?;
     return Ok(());
   }
 
@@ -47,4 +53,8 @@ struct Args {
   /// Download historical data for all of the symbols in the database
   #[arg(long)]
   download_history: bool,
+
+  /// Load the downloaded candle data into the database
+  #[arg(long)]
+  load_history: bool,
 }

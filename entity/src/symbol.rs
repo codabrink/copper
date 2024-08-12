@@ -1,7 +1,6 @@
 use anyhow::Result;
 use serde::Deserialize;
-use sqlx::{postgres::PgDatabaseError, query, query_as, Database, PgPool};
-use std::collections::HashMap;
+use sqlx::{query, query_as, PgConnection, PgPool};
 use tracing::{info, warn};
 
 #[derive(Deserialize)]
@@ -29,7 +28,7 @@ SELECT * FROM symbols s WHERE s.status = 'TRADING';
     Ok(symbols)
   }
 
-  pub async fn populate_all(pool: &PgPool) -> Result<()> {
+  pub async fn populate_all(pool: &mut PgConnection) -> Result<()> {
     let resp = reqwest::get("https://api.binance.com/api/v3/exchangeInfo")
       .await?
       .text()
@@ -48,7 +47,7 @@ VALUES ( $1, $2, $3, $4 );
         symbol.base_asset,
         symbol.quote_asset
       )
-      .execute(pool)
+      .execute(&mut *pool)
       .await;
 
       match result {
