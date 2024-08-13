@@ -7,7 +7,7 @@ use std::{ops::RangeInclusive, path::PathBuf};
 use tokio::{
   fs::{create_dir_all, File},
   io::{AsyncWriteExt, BufReader},
-  spawn, stream,
+  spawn,
 };
 use tracing::{error, info};
 
@@ -16,8 +16,8 @@ const BASEURL: &str = "https://data.binance.vision/data/spot/monthly/klines";
 static YEARS: RangeInclusive<i32> = 2017..=2024;
 static MONTHS: RangeInclusive<i32> = 1..=12;
 
-pub async fn load_all(pool: &PgPool) -> Result<()> {
-  let symbols = Symbol::fetch_all(pool).await?;
+pub async fn load_btc_usdt(pool: &PgPool) -> Result<()> {
+  let symbols = Symbol::fetch_btc_usdt_pairs(pool).await?;
   let mut futures = vec![];
 
   // We know it'll last long enough.

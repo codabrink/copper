@@ -25,6 +25,7 @@ async fn main() -> Result<()> {
   if args.populate_symbols {
     let mut tx = pool.begin().await?;
     Symbol::populate_all(&mut tx).await?;
+    tx.commit().await?;
     return Ok(());
   }
 
@@ -34,7 +35,7 @@ async fn main() -> Result<()> {
   }
 
   if args.load_history {
-    history::load_all(&pool).await?;
+    history::load_btc_usdt(&pool).await?;
     return Ok(());
   }
 

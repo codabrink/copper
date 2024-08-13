@@ -28,6 +28,19 @@ SELECT * FROM symbols s WHERE s.status = 'TRADING';
     Ok(symbols)
   }
 
+  pub async fn fetch_btc_usdt_pairs(pool: &PgPool) -> Result<Vec<Self>> {
+    let symbols = query_as!(
+      Self,
+      r#"--sql
+SELECT * FROM symbols s WHERE s.status = 'TRADING' AND s.quote_asset = 'BTC' OR s.quote_asset = 'USDT';
+      "#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(symbols)
+  }
+
   pub async fn populate_all(pool: &mut PgConnection) -> Result<()> {
     let resp = reqwest::get("https://api.binance.com/api/v3/exchangeInfo")
       .await?
